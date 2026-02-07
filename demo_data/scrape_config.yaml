@@ -1,0 +1,17 @@
+targets:
+  - name: tech-products
+    url: https://example.com/products
+    selector: ".product-card"
+    fields:
+      name: ".product-title"
+      price: ".product-price"
+      category: ".product-category"
+      link_href: "a.product-link"
+
+  - name: competitor-prices
+    url: https://example.com/competitor
+    selector: ".price-item"
+    fields:
+      name: ".item-name"
+      price: ".item-price"
+      availability: ".stock-status"
