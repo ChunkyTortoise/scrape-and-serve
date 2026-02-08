@@ -12,6 +12,7 @@ from scrape_and_serve.seo_analyzer import (
     TechnicalIssue,
 )
 from scrape_and_serve.validator import DataValidator, ValidationError, ValidationResult, ValidationRule
+from scrape_and_serve.validators import validate_config, validate_scrape_result, validate_url
 
 __all__ = [
     "ContentComparison",
@@ -30,4 +31,7 @@ __all__ = [
     "ValidationError",
     "ValidationResult",
     "ValidationRule",
+    "validate_config",
+    "validate_scrape_result",
+    "validate_url",
 ]
