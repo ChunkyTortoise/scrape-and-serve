@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ChunkyTortoise/scrape-and-serve/actions/workflows/ci.yml/badge.svg)](https://github.com/ChunkyTortoise/scrape-and-serve/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-62_passing-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-77_passing-brightgreen)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F1C40F.svg)](LICENSE)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Streamlit_Cloud-FF4B4B.svg?logo=streamlit&logoColor=white)](https://ct-scrape-and-serve.streamlit.app)
 
@@ -164,7 +164,8 @@ scrape-and-serve/
 │   ├── scraper.py                  # YAML-configurable web scraper + change detection
 │   ├── price_monitor.py            # Price tracking, alerts, CSV export
 │   ├── excel_converter.py          # .xlsx -> SQLite + Streamlit CRUD generation
-│   └── seo_content.py              # SEO scoring 0-100, outline generation
+│   ├── seo_content.py              # SEO scoring 0-100, outline generation
+│   └── diff_visualizer.py          # Page snapshot tracking + diff visualization
 ├── demo_data/
 │   ├── generate_demo_data.py       # Reproducible sample data generator
 │   ├── products.csv                # 15 products with prices
@@ -174,13 +175,44 @@ scrape-and-serve/
 │   ├── test_scraper.py             # Scraper + change detection tests
 │   ├── test_price_monitor.py       # Price tracking + alert tests
 │   ├── test_excel_converter.py     # Schema detection + CRUD generation tests
-│   └── test_seo_content.py         # SEO scoring + outline tests
+│   ├── test_seo_content.py         # SEO scoring + outline tests
+│   └── test_diff_visualizer.py     # Snapshot tracking + diff tests
 ├── .github/workflows/ci.yml        # CI pipeline (lint + test on 3.11/3.12)
 ├── .streamlit/config.toml          # Streamlit theme configuration
 ├── Makefile                        # demo, test, lint, clean, setup, generate-data
 ├── pyproject.toml                  # Ruff configuration
 ├── requirements.txt                # Production dependencies
 └── requirements-dev.txt            # Development dependencies (pytest, ruff)
+```
+
+## Diff Visualizer
+
+Track page content over time and visualize changes between snapshots -- uses only stdlib (difflib, hashlib):
+
+```python
+from scrape_and_serve.diff_visualizer import DiffVisualizer
+
+viz = DiffVisualizer()
+
+# Track snapshots over time
+viz.add_snapshot("https://shop.com/prices", "Widget A: $10\nWidget B: $20")
+viz.add_snapshot("https://shop.com/prices", "Widget A: $12\nWidget B: $20\nWidget C: $15")
+
+# Compare latest two snapshots
+diff = viz.get_diff("https://shop.com/prices")
+print(f"Similarity: {diff.similarity_ratio:.0%}")
+print(f"Added: {diff.added_lines}")
+print(f"Removed: {diff.removed_lines}")
+
+# Unified diff output
+print(viz.get_unified_diff("https://shop.com/prices"))
+
+# Export full history to JSON
+viz.export_history("change_history.json")
+
+# Summary across all tracked URLs
+print(viz.get_change_summary())
+# {'urls_tracked': 1, 'total_snapshots': 2, 'urls_with_changes': 1}
 ```
 
 ## Testing
