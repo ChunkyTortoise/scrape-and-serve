@@ -162,7 +162,7 @@ def generate_streamlit_code(schema: TableSchema, db_path: str = "data.db") -> st
         "",
         "    with tab_view:",
         '        df = read_all()',
-        '        st.dataframe(df, use_container_width=True)',
+        '        st.dataframe(df, width="stretch")',
         '        st.caption(f"{len(df)} records")',
         "",
         "    with tab_add:",

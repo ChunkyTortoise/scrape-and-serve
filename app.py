@@ -86,7 +86,7 @@ def render_price_monitor_tab() -> None:
 
     summary = history.price_summary()
     if summary:
-        st.dataframe(pd.DataFrame(summary), use_container_width=True)
+        st.dataframe(pd.DataFrame(summary), width="stretch")
 
         products = history.get_products()
         selected = st.selectbox("Product:", products)
@@ -132,7 +132,7 @@ def render_excel_converter_tab() -> None:
 
         col1, col2 = st.columns([2, 1])
         with col1:
-            st.dataframe(df.head(10), use_container_width=True)
+            st.dataframe(df.head(10), width="stretch")
         with col2:
             st.markdown("**Detected Schema:**")
             for col in schema.columns:
