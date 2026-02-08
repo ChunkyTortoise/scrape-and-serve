@@ -5,6 +5,8 @@
 [![Tests](https://img.shields.io/badge/tests-62_passing-brightgreen)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F1C40F.svg)](LICENSE)
 
+**[Live Demo](https://ct-scrape-and-serve.streamlit.app)** — try it without installing anything.
+
 **Small businesses spend 5+ hours per week manually checking competitor prices, emailing Excel files for inventory updates, and publishing content with zero SEO data.** Each task requires a different tool, a different workflow, and manual effort that scales linearly with product count. Scrape-and-Serve cuts that to minutes -- YAML-configured scrapers, automated price alerts, one-click Excel-to-web-app conversion, and SEO scoring from 0-100, all in one Python toolkit with a Streamlit UI.
 
 ## What This Solves
@@ -58,6 +60,8 @@
 ```
 
 ## Quick Start
+
+> **Try instantly**: [https://ct-scrape-and-serve.streamlit.app](https://ct-scrape-and-serve.streamlit.app) — no install required.
 
 ```bash
 git clone https://github.com/ChunkyTortoise/scrape-and-serve.git
