@@ -79,9 +79,7 @@ def read_excel(path: str | Path) -> dict[str, pd.DataFrame]:
     return {name: xls.parse(name) for name in xls.sheet_names}
 
 
-def create_sqlite_db(
-    df: pd.DataFrame, table_name: str, db_path: str | Path
-) -> TableSchema:
+def create_sqlite_db(df: pd.DataFrame, table_name: str, db_path: str | Path) -> TableSchema:
     """Create a SQLite database from a DataFrame."""
     db_path = Path(db_path)
     schema = detect_schema(df, table_name)
@@ -118,10 +116,7 @@ def create_sqlite_db(
         insert_sql = f'INSERT INTO "{table_name}" ({col_names}) VALUES ({placeholders})'
 
         for _, row in clean_df.iterrows():
-            values = [
-                None if pd.isna(row[col.name]) else row[col.name]
-                for col in schema.columns
-            ]
+            values = [None if pd.isna(row[col.name]) else row[col.name] for col in schema.columns]
             conn.execute(insert_sql, values)
         conn.commit()
     finally:
@@ -148,7 +143,7 @@ def generate_streamlit_code(schema: TableSchema, db_path: str = "data.db") -> st
         "",
         "",
         "def read_all():",
-        '    conn = get_conn()',
+        "    conn = get_conn()",
         '    df = pd.read_sql(f"SELECT * FROM {TABLE}", conn)',
         "    conn.close()",
         "    return df",
@@ -161,7 +156,7 @@ def generate_streamlit_code(schema: TableSchema, db_path: str = "data.db") -> st
         '    tab_view, tab_add = st.tabs(["View Data", "Add Record"])',
         "",
         "    with tab_view:",
-        '        df = read_all()',
+        "        df = read_all()",
         '        st.dataframe(df, width="stretch")',
         '        st.caption(f"{len(df)} records")',
         "",
@@ -182,22 +177,24 @@ def generate_streamlit_code(schema: TableSchema, db_path: str = "data.db") -> st
     placeholders = ", ".join(["?"] * len(schema.columns))
     values_expr = ", ".join(c.name for c in schema.columns)
 
-    lines.extend([
-        "",
-        '        if st.button("Add Record"):',
-        "            conn = get_conn()",
-        f"            conn.execute("
-        f"'INSERT INTO {schema.table_name} ({col_names}) "
-        f"VALUES ({placeholders})', ({values_expr},))",
-        "            conn.commit()",
-        "            conn.close()",
-        '            st.success("Record added.")',
-        "            st.rerun()",
-        "",
-        "",
-        'if __name__ == "__main__":',
-        "    main()",
-    ])
+    lines.extend(
+        [
+            "",
+            '        if st.button("Add Record"):',
+            "            conn = get_conn()",
+            f"            conn.execute("
+            f"'INSERT INTO {schema.table_name} ({col_names}) "
+            f"VALUES ({placeholders})', ({values_expr},))",
+            "            conn.commit()",
+            "            conn.close()",
+            '            st.success("Record added.")',
+            "            st.rerun()",
+            "",
+            "",
+            'if __name__ == "__main__":',
+            "    main()",
+        ]
+    )
 
     return "\n".join(lines) + "\n"
 

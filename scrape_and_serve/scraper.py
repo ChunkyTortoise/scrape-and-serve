@@ -1,4 +1,4 @@
-"""YAML-configurable web scraper with change detection."""
+"""YAML-configurable web scraper with change detection and robots.txt compliance."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -88,9 +89,108 @@ def scrape_html(html: str, target: ScrapeTarget) -> ScrapeResult:
     )
 
 
-async def fetch_and_scrape(target: ScrapeTarget) -> ScrapeResult:
-    """Fetch a URL and scrape it according to the target config."""
+class RobotsChecker:
+    """Check robots.txt compliance before scraping a URL."""
+
+    USER_AGENT = "ScrapeAndServe"
+
+    def __init__(self) -> None:
+        self._cache: dict[str, list[str]] = {}
+
+    def _robots_url(self, url: str) -> str:
+        """Derive the robots.txt URL from a target URL."""
+        parsed = urlparse(url)
+        return f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+
+    def _parse_rules(self, robots_text: str) -> list[str]:
+        """Parse Disallow rules for our user-agent (or *)."""
+        disallowed: list[str] = []
+        applies = False
+
+        for line in robots_text.splitlines():
+            line = line.strip()
+            if line.startswith("#") or not line:
+                continue
+
+            if line.lower().startswith("user-agent:"):
+                agent = line.split(":", 1)[1].strip().lower()
+                applies = agent == "*" or self.USER_AGENT.lower() in agent
+            elif applies and line.lower().startswith("disallow:"):
+                path = line.split(":", 1)[1].strip()
+                if path:
+                    disallowed.append(path)
+
+        return disallowed
+
+    async def fetch_rules(self, url: str) -> list[str]:
+        """Fetch and cache robots.txt rules for a given URL's domain."""
+        robots_url = self._robots_url(url)
+        if robots_url in self._cache:
+            return self._cache[robots_url]
+
+        try:
+            async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+                resp = await client.get(robots_url)
+                if resp.status_code == 200:
+                    rules = self._parse_rules(resp.text)
+                else:
+                    rules = []  # No robots.txt = everything allowed
+        except (httpx.HTTPError, httpx.TimeoutException):
+            rules = []  # Network error = allow (fail open)
+
+        self._cache[robots_url] = rules
+        return rules
+
+    async def is_allowed(self, url: str) -> bool:
+        """Check if the given URL is allowed by robots.txt."""
+        rules = await self.fetch_rules(url)
+        parsed = urlparse(url)
+        path = parsed.path or "/"
+
+        for disallowed in rules:
+            if disallowed == "/":
+                return False
+            if path.startswith(disallowed):
+                return False
+        return True
+
+    def is_allowed_sync(self, path: str, rules: list[str]) -> bool:
+        """Synchronous check against pre-fetched rules."""
+        if not path:
+            path = "/"
+        for disallowed in rules:
+            if disallowed == "/":
+                return False
+            if path.startswith(disallowed):
+                return False
+        return True
+
+
+# Module-level shared instance for convenience
+_default_robots_checker = RobotsChecker()
+
+
+async def fetch_and_scrape(
+    target: ScrapeTarget,
+    respect_robots: bool = True,
+) -> ScrapeResult:
+    """Fetch a URL and scrape it according to the target config.
+
+    Args:
+        target: The scrape target configuration.
+        respect_robots: If True, checks robots.txt before fetching. Defaults to True.
+    """
     try:
+        if respect_robots:
+            allowed = await _default_robots_checker.is_allowed(target.url)
+            if not allowed:
+                return ScrapeResult(
+                    target_name=target.name,
+                    url=target.url,
+                    items=[],
+                    error=f"Blocked by robots.txt: {target.url}",
+                )
+
         async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
             headers = {"User-Agent": "ScrapeAndServe/0.1", **target.headers}
             resp = await client.get(target.url, headers=headers)

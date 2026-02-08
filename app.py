@@ -2,21 +2,18 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
 from scrape_and_serve.excel_converter import (
-    create_sqlite_db,
     detect_schema,
     generate_streamlit_code,
-    query_db,
     read_excel,
 )
-from scrape_and_serve.price_monitor import PriceHistory, PricePoint, export_history_csv
-from scrape_and_serve.scraper import ScrapeTarget, parse_config, scrape_html
+from scrape_and_serve.price_monitor import PriceHistory, export_history_csv
+from scrape_and_serve.scraper import ScrapeTarget, scrape_html
 from scrape_and_serve.seo_content import generate_outline, score_content
 
 DEMO_DIR = Path(__file__).parent / "demo_data"
@@ -92,9 +89,7 @@ def render_price_monitor_tab() -> None:
         selected = st.selectbox("Product:", products)
         if selected:
             points = history.get_product_history(selected)
-            chart_df = pd.DataFrame([
-                {"date": p.observed_at, "price": p.price} for p in points
-            ])
+            chart_df = pd.DataFrame([{"date": p.observed_at, "price": p.price} for p in points])
             st.line_chart(chart_df.set_index("date"))
 
         if st.button("Export CSV"):
@@ -122,6 +117,7 @@ def render_excel_converter_tab() -> None:
         if not uploaded:
             return
         import tempfile
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{uploaded.name}") as tmp:
             tmp.write(uploaded.read())
             sheets = read_excel(tmp.name)

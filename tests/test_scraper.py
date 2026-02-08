@@ -1,10 +1,16 @@
 """Tests for scraper module."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from scrape_and_serve.scraper import (
+    RobotsChecker,
     ScrapeTarget,
     clean_price,
     detect_changes,
     extract_fields,
+    fetch_and_scrape,
     parse_config,
     scrape_html,
 )
@@ -46,9 +52,7 @@ class TestParseConfig:
 
     def test_single_target(self):
         config = {
-            "targets": [
-                {"name": "shop", "url": "https://shop.com", "selector": ".item", "fields": {"title": ".t"}}
-            ]
+            "targets": [{"name": "shop", "url": "https://shop.com", "selector": ".item", "fields": {"title": ".t"}}]
         }
         targets = parse_config(config)
         assert len(targets) == 1
@@ -69,6 +73,7 @@ class TestParseConfig:
 class TestExtractFields:
     def test_basic_fields(self):
         from bs4 import BeautifulSoup
+
         html = '<div><span class="name">Foo</span><span class="price">$10</span></div>'
         soup = BeautifulSoup(html, "html.parser")
         result = extract_fields(soup, {"name": ".name", "price": ".price"})
@@ -76,6 +81,7 @@ class TestExtractFields:
 
     def test_missing_field(self):
         from bs4 import BeautifulSoup
+
         html = '<div><span class="name">Bar</span></div>'
         soup = BeautifulSoup(html, "html.parser")
         result = extract_fields(soup, {"name": ".name", "missing": ".nope"})
@@ -84,6 +90,7 @@ class TestExtractFields:
 
     def test_href_field(self):
         from bs4 import BeautifulSoup
+
         html = '<div><a class="link" href="/page">Click</a></div>'
         soup = BeautifulSoup(html, "html.parser")
         result = extract_fields(soup, {"link_href": ".link"})
@@ -129,9 +136,7 @@ class TestDetectChanges:
         target = _make_target()
         r1 = scrape_html(SAMPLE_HTML, target)
         extra_html = (
-            SAMPLE_HTML
-            + '<div class="product"><span class="name">Widget D</span>'
-            '<span class="price">$99</span></div>'
+            SAMPLE_HTML + '<div class="product"><span class="name">Widget D</span><span class="price">$99</span></div>'
         )
         r2 = scrape_html(extra_html, target)
         changes = detect_changes(r1, r2)
@@ -161,3 +166,166 @@ class TestCleanPrice:
 
     def test_integer(self):
         assert clean_price("$100") == 100.0
+
+
+class TestRobotsChecker:
+    def test_parse_disallow_all(self):
+        checker = RobotsChecker()
+        robots_txt = "User-agent: *\nDisallow: /"
+        rules = checker._parse_rules(robots_txt)
+        assert "/" in rules
+
+    def test_parse_disallow_path(self):
+        checker = RobotsChecker()
+        robots_txt = "User-agent: *\nDisallow: /admin\nDisallow: /private"
+        rules = checker._parse_rules(robots_txt)
+        assert "/admin" in rules
+        assert "/private" in rules
+
+    def test_parse_allow_all(self):
+        checker = RobotsChecker()
+        robots_txt = "User-agent: *\nDisallow:"
+        rules = checker._parse_rules(robots_txt)
+        assert rules == []
+
+    def test_parse_specific_agent(self):
+        checker = RobotsChecker()
+        robots_txt = "User-agent: ScrapeAndServe\nDisallow: /secret\n\nUser-agent: *\nDisallow: /other"
+        rules = checker._parse_rules(robots_txt)
+        assert "/secret" in rules
+        assert "/other" in rules
+
+    def test_parse_ignores_comments(self):
+        checker = RobotsChecker()
+        robots_txt = "# comment\nUser-agent: *\n# another comment\nDisallow: /blocked"
+        rules = checker._parse_rules(robots_txt)
+        assert rules == ["/blocked"]
+
+    def test_is_allowed_sync_root_blocked(self):
+        checker = RobotsChecker()
+        assert checker.is_allowed_sync("/page", ["/"]) is False
+
+    def test_is_allowed_sync_path_blocked(self):
+        checker = RobotsChecker()
+        assert checker.is_allowed_sync("/admin/users", ["/admin"]) is False
+
+    def test_is_allowed_sync_path_allowed(self):
+        checker = RobotsChecker()
+        assert checker.is_allowed_sync("/products", ["/admin"]) is True
+
+    def test_is_allowed_sync_empty_rules(self):
+        checker = RobotsChecker()
+        assert checker.is_allowed_sync("/anything", []) is True
+
+    def test_robots_url_derivation(self):
+        checker = RobotsChecker()
+        assert checker._robots_url("https://example.com/page") == "https://example.com/robots.txt"
+        assert checker._robots_url("https://shop.io:8080/items") == "https://shop.io:8080/robots.txt"
+
+    @pytest.mark.asyncio
+    async def test_is_allowed_blocked_url(self):
+        checker = RobotsChecker()
+        robots_txt = "User-agent: *\nDisallow: /private"
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = robots_txt
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_resp)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client_cls.return_value = mock_client
+
+            result = await checker.is_allowed("https://example.com/private/data")
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_is_allowed_permitted_url(self):
+        checker = RobotsChecker()
+        robots_txt = "User-agent: *\nDisallow: /private"
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = robots_txt
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_resp)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client_cls.return_value = mock_client
+
+            result = await checker.is_allowed("https://example.com/products")
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_is_allowed_no_robots_txt(self):
+        checker = RobotsChecker()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 404
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_resp)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client_cls.return_value = mock_client
+
+            result = await checker.is_allowed("https://example.com/anything")
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_caches_rules(self):
+        checker = RobotsChecker()
+        robots_txt = "User-agent: *\nDisallow: /blocked"
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = robots_txt
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_resp)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client_cls.return_value = mock_client
+
+            await checker.is_allowed("https://example.com/page1")
+            await checker.is_allowed("https://example.com/page2")
+            # Only one HTTP call since the second is cached
+            assert mock_client.get.await_count == 1
+
+
+class TestFetchAndScrapeRobots:
+    @pytest.mark.asyncio
+    async def test_blocked_by_robots(self):
+        target = _make_target(url="https://example.com/private/page")
+
+        with patch(
+            "scrape_and_serve.scraper._default_robots_checker.is_allowed",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            result = await fetch_and_scrape(target, respect_robots=True)
+            assert result.error is not None
+            assert "robots.txt" in result.error
+            assert result.items == []
+
+    @pytest.mark.asyncio
+    async def test_robots_bypass(self):
+        """respect_robots=False skips robots.txt check."""
+        target = _make_target(url="https://example.com/private/page")
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = SAMPLE_HTML
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_resp)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client_cls.return_value = mock_client
+
+            result = await fetch_and_scrape(target, respect_robots=False)
+            assert result.error is None
+            assert len(result.items) == 3

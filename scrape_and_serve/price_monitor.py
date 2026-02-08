@@ -46,10 +46,7 @@ class PriceHistory:
         self.records.append(point)
 
         # Find the most recent previous observation for this product
-        previous = [
-            r for r in self.records[:-1]
-            if r.product_name == product_name and r.source == source
-        ]
+        previous = [r for r in self.records[:-1] if r.product_name == product_name and r.source == source]
         if not previous:
             return None
 
@@ -94,14 +91,16 @@ class PriceHistory:
 
         summaries = []
         for name, prices in sorted(products.items()):
-            summaries.append({
-                "product": name,
-                "current": prices[-1],
-                "min": min(prices),
-                "max": max(prices),
-                "avg": round(sum(prices) / len(prices), 2),
-                "observations": len(prices),
-            })
+            summaries.append(
+                {
+                    "product": name,
+                    "current": prices[-1],
+                    "min": min(prices),
+                    "max": max(prices),
+                    "avg": round(sum(prices) / len(prices), 2),
+                    "observations": len(prices),
+                }
+            )
         return summaries
 
 

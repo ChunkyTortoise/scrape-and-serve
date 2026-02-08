@@ -84,11 +84,13 @@ def generate_outline(
     ]
 
     if len(keywords) > 1:
-        for kw in keywords[1:num_sections - 2]:
-            sections.append({
-                "heading": f"How {kw} Relates to {topic}",
-                "notes": f"Explore the connection between {kw} and {topic}.",
-            })
+        for kw in keywords[1 : num_sections - 2]:
+            sections.append(
+                {
+                    "heading": f"How {kw} Relates to {topic}",
+                    "notes": f"Explore the connection between {kw} and {topic}.",
+                }
+            )
 
     sections.append({"heading": "Getting Started", "notes": "Actionable steps for the reader."})
     sections.append({"heading": "Conclusion", "notes": f"Summarize key points about {topic}."})

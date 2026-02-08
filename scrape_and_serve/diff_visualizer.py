@@ -46,9 +46,7 @@ class DiffVisualizer:
     def __init__(self):
         self._history: dict[str, list[PageSnapshot]] = {}
 
-    def add_snapshot(
-        self, url: str, content: str, timestamp: datetime | None = None
-    ) -> PageSnapshot:
+    def add_snapshot(self, url: str, content: str, timestamp: datetime | None = None) -> PageSnapshot:
         """Add a new snapshot for a URL.
 
         Args:

@@ -15,12 +15,14 @@ from scrape_and_serve.excel_converter import (
 
 
 def _sample_df():
-    return pd.DataFrame({
-        "name": ["Alice", "Bob", "Charlie"],
-        "age": [30, 25, 35],
-        "salary": [50000.0, 60000.0, 70000.0],
-        "active": [True, False, True],
-    })
+    return pd.DataFrame(
+        {
+            "name": ["Alice", "Bob", "Charlie"],
+            "age": [30, 25, 35],
+            "salary": [50000.0, 60000.0, 70000.0],
+            "active": [True, False, True],
+        }
+    )
 
 
 class TestDetectColumnDtype:
