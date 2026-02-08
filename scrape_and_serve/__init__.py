@@ -3,7 +3,14 @@
 __version__ = "0.1.0"
 
 from scrape_and_serve.diff_visualizer import DiffResult, DiffVisualizer, PageSnapshot
-from scrape_and_serve.scheduler import JobHistoryEntry, JobStatus, ScheduleConfig, SchedulerStatus, ScrapeScheduler, parse_cron
+from scrape_and_serve.scheduler import (
+    JobHistoryEntry,
+    JobStatus,
+    ScheduleConfig,
+    SchedulerStatus,
+    ScrapeScheduler,
+    parse_cron,
+)
 from scrape_and_serve.seo_analyzer import (
     BacklinkEstimator,
     BacklinkResult,

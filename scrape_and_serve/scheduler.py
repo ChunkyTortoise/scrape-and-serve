@@ -5,10 +5,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import re
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
@@ -214,7 +212,9 @@ class ScrapeScheduler:
             self._statuses[name].next_run = time.time() + config.interval_seconds
             await asyncio.sleep(config.interval_seconds)
 
-    def _add_history(self, name: str, timestamp: float, success: bool, result: Any = None, error: str | None = None) -> None:
+    def _add_history(
+        self, name: str, timestamp: float, success: bool, result: Any = None, error: str | None = None
+    ) -> None:
         """Add an entry to job history, maintaining max size."""
         status = self._statuses.get(name)
         if not status:

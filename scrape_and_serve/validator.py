@@ -231,9 +231,7 @@ class URLValidator:
 
         # Check netloc (domain)
         if not parsed.netloc:
-            errors.append(
-                ValidationError(field="url", rule_type="format", message="URL must have a domain", value=url)
-            )
+            errors.append(ValidationError(field="url", rule_type="format", message="URL must have a domain", value=url))
         elif "." not in parsed.netloc:
             errors.append(
                 ValidationError(
@@ -263,9 +261,7 @@ class SelectorValidator:
 
         if not selector or not isinstance(selector, str):
             errors.append(
-                ValidationError(
-                    field="selector", rule_type="required", message="Selector is required", value=selector
-                )
+                ValidationError(field="selector", rule_type="required", message="Selector is required", value=selector)
             )
             return ValidationResult(is_valid=False, errors=errors)
 
@@ -355,7 +351,9 @@ class ConfigValidator:
             return ValidationResult(
                 is_valid=False,
                 errors=[
-                    ValidationError(field="config", rule_type="type", message="Config must be a dictionary", value=config)
+                    ValidationError(
+                        field="config", rule_type="type", message="Config must be a dictionary", value=config
+                    )
                 ],
             )
 
@@ -418,7 +416,9 @@ class ConfigValidator:
             fields = config["fields"]
             if not isinstance(fields, dict):
                 errors.append(
-                    ValidationError(field="fields", rule_type="type", message="fields must be a dictionary", value=fields)
+                    ValidationError(
+                        field="fields", rule_type="type", message="fields must be a dictionary", value=fields
+                    )
                 )
 
         return ValidationResult(is_valid=len(errors) == 0, errors=errors, warnings=warnings)
