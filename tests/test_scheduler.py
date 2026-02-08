@@ -1,10 +1,12 @@
 """Tests for the scheduler module."""
 
 import asyncio
+import tempfile
+from pathlib import Path
 
 import pytest
 
-from scrape_and_serve.scheduler import ScheduleConfig, ScrapeScheduler
+from scrape_and_serve.scheduler import ScheduleConfig, ScrapeScheduler, parse_cron
 
 
 async def mock_scrape(url: str) -> str:
@@ -283,3 +285,136 @@ class TestSchedulerLifecycle:
         assert "active" in scheduler._tasks
         assert "disabled" not in scheduler._tasks
         scheduler.stop()
+
+
+class TestCronExpressions:
+    """Tests for cron expression parsing and application."""
+
+    def test_parse_every_n_minutes(self):
+        assert parse_cron("*/5 * * * *") == 300
+        assert parse_cron("*/15 * * * *") == 900
+
+    def test_parse_hourly(self):
+        assert parse_cron("0 * * * *") == 3600
+
+    def test_parse_daily(self):
+        assert parse_cron("0 0 * * *") == 86400
+
+    def test_parse_invalid_format(self):
+        assert parse_cron("invalid") is None
+        assert parse_cron("* * *") is None
+        assert parse_cron("") is None
+
+    def test_apply_cron_to_job(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="hourly", cron="0 * * * *"))
+        assert scheduler.apply_cron_interval("hourly") is True
+        config = scheduler._jobs["hourly"]
+        assert config.interval_seconds == 3600
+
+    def test_apply_invalid_cron(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="bad", cron="invalid"))
+        assert scheduler.apply_cron_interval("bad") is False
+
+
+class TestJobPersistence:
+    """Tests for saving and loading job configurations."""
+
+    def test_save_jobs(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://a.com", name="job_a", interval_seconds=3600))
+        scheduler.add_job(ScheduleConfig(url="https://b.com", name="job_b", interval_seconds=7200))
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
+            temp_path = Path(f.name)
+
+        try:
+            scheduler.save_jobs(temp_path)
+            assert temp_path.exists()
+            content = temp_path.read_text()
+            assert "https://a.com" in content
+            assert "https://b.com" in content
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    def test_load_jobs(self):
+        scheduler1 = ScrapeScheduler()
+        scheduler1.add_job(ScheduleConfig(url="https://test.com", name="test_job", interval_seconds=1800))
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as f:
+            temp_path = Path(f.name)
+
+        try:
+            scheduler1.save_jobs(temp_path)
+
+            scheduler2 = ScrapeScheduler()
+            count = scheduler2.load_jobs(temp_path)
+            assert count == 1
+            assert "test_job" in scheduler2._jobs
+            assert scheduler2._jobs["test_job"].url == "https://test.com"
+            assert scheduler2._jobs["test_job"].interval_seconds == 1800
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    def test_load_nonexistent_file(self):
+        scheduler = ScrapeScheduler()
+        count = scheduler.load_jobs("/nonexistent/path.json")
+        assert count == 0
+
+
+class TestJobHistory:
+    """Tests for job execution history tracking."""
+
+    @pytest.mark.asyncio
+    async def test_history_on_success(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="test"))
+        await scheduler.run_once("test", mock_scrape)
+
+        history = scheduler.get_history("test")
+        assert len(history) == 1
+        assert history[0].success is True
+        assert history[0].result == "content from https://example.com"
+        assert history[0].error is None
+
+    @pytest.mark.asyncio
+    async def test_history_on_error(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="test"))
+
+        with pytest.raises(RuntimeError):
+            await scheduler.run_once("test", failing_scrape)
+
+        history = scheduler.get_history("test")
+        assert len(history) == 1
+        assert history[0].success is False
+        assert history[0].error == "Network error"
+
+    @pytest.mark.asyncio
+    async def test_history_limit(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="test"))
+
+        # Run multiple times to exceed MAX_HISTORY_SIZE
+        for _ in range(15):
+            await scheduler.run_once("test", mock_scrape)
+
+        status = scheduler.get_status("test")
+        assert status is not None
+        # Should be trimmed to MAX_HISTORY_SIZE (10)
+        assert len(status.history) <= scheduler.MAX_HISTORY_SIZE
+
+    @pytest.mark.asyncio
+    async def test_history_most_recent_first(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="test"))
+
+        await scheduler.run_once("test", mock_scrape)
+        await asyncio.sleep(0.01)
+        await scheduler.run_once("test", mock_scrape)
+
+        history = scheduler.get_history("test", limit=2)
+        assert len(history) == 2
+        # Most recent should be first
+        assert history[0].timestamp > history[1].timestamp
