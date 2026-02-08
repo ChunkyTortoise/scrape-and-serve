@@ -1,6 +1,12 @@
 """Tests for the SEO analyzer module."""
 
-from scrape_and_serve.seo_analyzer import SEOAnalyzer
+from scrape_and_serve.seo_analyzer import (
+    BacklinkEstimator,
+    CompetitorAnalysis,
+    KeywordGapAnalysis,
+    SEOAnalyzer,
+    TrendTracker,
+)
 
 
 class TestKeywordExtraction:
@@ -141,3 +147,170 @@ class TestAnalyze:
         assert 0 <= result.content_score <= 100
         assert isinstance(result.keyword_suggestions, list)
         assert isinstance(result.technical_issues, list)
+
+
+class TestCompetitorAnalysis:
+    def test_empty_pages(self):
+        analyzer = CompetitorAnalysis()
+        result = analyzer.analyze([])
+        assert result.rankings == []
+        assert result.avg_score == 0.0
+        assert result.top_performer == ""
+        assert result.bottom_performer == ""
+
+    def test_single_page(self):
+        analyzer = CompetitorAnalysis()
+        pages = [{"url": "https://example.com", "score": 75.5}]
+        result = analyzer.analyze(pages)
+        assert len(result.rankings) == 1
+        assert result.rankings[0] == ("https://example.com", 75.5)
+        assert result.avg_score == 75.5
+        assert result.top_performer == "https://example.com"
+        assert result.bottom_performer == "https://example.com"
+
+    def test_multiple_pages_ranked(self):
+        analyzer = CompetitorAnalysis()
+        pages = [
+            {"url": "https://a.com", "score": 60},
+            {"url": "https://b.com", "score": 85},
+            {"url": "https://c.com", "score": 70},
+        ]
+        result = analyzer.analyze(pages)
+        assert len(result.rankings) == 3
+        assert result.rankings[0] == ("https://b.com", 85)
+        assert result.rankings[2] == ("https://a.com", 60)
+        assert result.top_performer == "https://b.com"
+        assert result.bottom_performer == "https://a.com"
+        assert result.avg_score == 71.67
+
+
+class TestKeywordGapAnalysis:
+    def test_no_overlap(self):
+        analyzer = KeywordGapAnalysis()
+        yours = {"python", "django"}
+        theirs = {"javascript", "react"}
+        result = analyzer.find_gaps(yours, theirs)
+        assert set(result.missing_keywords) == {"javascript", "react"}
+        assert result.shared_keywords == []
+        assert set(result.unique_keywords) == {"python", "django"}
+        assert result.gap_count == 2
+
+    def test_complete_overlap(self):
+        analyzer = KeywordGapAnalysis()
+        yours = {"python", "web", "scraping"}
+        theirs = {"python", "web", "scraping"}
+        result = analyzer.find_gaps(yours, theirs)
+        assert result.missing_keywords == []
+        assert set(result.shared_keywords) == {"python", "web", "scraping"}
+        assert result.unique_keywords == []
+        assert result.gap_count == 0
+
+    def test_partial_overlap(self):
+        analyzer = KeywordGapAnalysis()
+        yours = {"python", "web", "scraping", "beautiful"}
+        theirs = {"python", "web", "automation", "selenium"}
+        result = analyzer.find_gaps(yours, theirs)
+        assert set(result.missing_keywords) == {"automation", "selenium"}
+        assert set(result.shared_keywords) == {"python", "web"}
+        assert set(result.unique_keywords) == {"scraping", "beautiful"}
+        assert result.gap_count == 2
+
+
+class TestBacklinkEstimator:
+    def test_no_links(self):
+        estimator = BacklinkEstimator()
+        html = "<html><body><p>No links here</p></body></html>"
+        result = estimator.estimate(html)
+        assert result.internal_count == 0
+        assert result.external_count == 0
+        assert result.quality_score == 0.0
+        assert result.domains == []
+
+    def test_internal_links_only(self):
+        estimator = BacklinkEstimator()
+        html = '<html><body><a href="/page1">P1</a><a href="/page2">P2</a></body></html>'
+        result = estimator.estimate(html)
+        assert result.internal_count == 2
+        assert result.external_count == 0
+        assert result.quality_score == 10.0
+
+    def test_external_links_only(self):
+        estimator = BacklinkEstimator()
+        html = '<html><body><a href="https://example.com">Ex</a></body></html>'
+        result = estimator.estimate(html)
+        assert result.internal_count == 0
+        assert result.external_count == 1
+        assert result.quality_score == 20.0
+
+    def test_mixed_links_good_quality(self):
+        estimator = BacklinkEstimator()
+        html = """
+        <html><body>
+            <a href="/page1">P1</a>
+            <a href="/page2">P2</a>
+            <a href="/page3">P3</a>
+            <a href="https://domain1.com">D1</a>
+            <a href="https://domain2.com">D2</a>
+            <a href="https://domain3.com">D3</a>
+        </body></html>
+        """
+        result = estimator.estimate(html)
+        assert result.internal_count == 3
+        assert result.external_count == 3
+        assert result.quality_score > 50
+        assert len(result.domains) == 3
+
+
+class TestTrendTracker:
+    def test_empty_history(self):
+        tracker = TrendTracker()
+        result = tracker.track([])
+        assert result.trend_direction == "stable"
+        assert result.avg_change == 0.0
+        assert result.forecast == 0.0
+        assert result.data_points == 0
+
+    def test_single_data_point(self):
+        tracker = TrendTracker()
+        history = [{"timestamp": 1, "score": 75.0}]
+        result = tracker.track(history)
+        assert result.trend_direction == "stable"
+        assert result.avg_change == 0.0
+        assert result.forecast == 75.0
+        assert result.data_points == 1
+
+    def test_improving_trend(self):
+        tracker = TrendTracker()
+        history = [
+            {"timestamp": 1, "score": 50.0},
+            {"timestamp": 2, "score": 55.0},
+            {"timestamp": 3, "score": 60.0},
+        ]
+        result = tracker.track(history)
+        assert result.trend_direction == "improving"
+        assert result.avg_change == 5.0
+        assert result.forecast == 65.0
+        assert result.data_points == 3
+
+    def test_declining_trend(self):
+        tracker = TrendTracker()
+        history = [
+            {"timestamp": 1, "score": 80.0},
+            {"timestamp": 2, "score": 75.0},
+            {"timestamp": 3, "score": 70.0},
+        ]
+        result = tracker.track(history)
+        assert result.trend_direction == "declining"
+        assert result.avg_change == -5.0
+        assert result.forecast == 65.0
+
+    def test_stable_trend(self):
+        tracker = TrendTracker()
+        history = [
+            {"timestamp": 1, "score": 70.0},
+            {"timestamp": 2, "score": 71.0},
+            {"timestamp": 3, "score": 70.5},
+        ]
+        result = tracker.track(history)
+        assert result.trend_direction == "stable"
+        assert abs(result.avg_change) < 2.0

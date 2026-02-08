@@ -6,6 +6,7 @@ import math
 import re
 from collections import Counter
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 
 @dataclass
@@ -367,4 +368,220 @@ class SEOAnalyzer:
             heading_count=heading_count,
             link_count=link_count,
             image_count=image_count,
+        )
+
+
+@dataclass
+class CompetitorResult:
+    """Result of competitor SEO comparison."""
+
+    rankings: list[tuple[str, float]]  # (url, score) sorted by score descending
+    avg_score: float
+    top_performer: str
+    bottom_performer: str
+
+
+@dataclass
+class GapResult:
+    """Result of keyword gap analysis."""
+
+    missing_keywords: list[str]  # keywords competitors have that you don't
+    shared_keywords: list[str]  # keywords both have
+    unique_keywords: list[str]  # keywords only you have
+    gap_count: int
+
+
+@dataclass
+class BacklinkResult:
+    """Result of backlink quality estimation."""
+
+    internal_count: int
+    external_count: int
+    quality_score: float  # 0-100
+    domains: list[str]  # unique external domains
+
+
+@dataclass
+class TrendResult:
+    """Result of SEO trend analysis."""
+
+    trend_direction: str  # "improving", "declining", "stable"
+    avg_change: float  # average change per period
+    forecast: float  # predicted next value
+    data_points: int
+
+
+class CompetitorAnalysis:
+    """Compare SEO scores across multiple competitor pages."""
+
+    def analyze(self, pages: list[dict]) -> CompetitorResult:
+        """Analyze competitor pages and rank them by SEO score.
+
+        Args:
+            pages: List of dicts with 'url' and 'score' keys
+
+        Returns:
+            CompetitorResult with rankings and statistics
+        """
+        if not pages:
+            return CompetitorResult(rankings=[], avg_score=0.0, top_performer="", bottom_performer="")
+
+        # Sort by score descending
+        sorted_pages = sorted(pages, key=lambda p: p.get("score", 0), reverse=True)
+        rankings = [(p["url"], p.get("score", 0)) for p in sorted_pages]
+
+        scores = [p.get("score", 0) for p in pages]
+        avg_score = sum(scores) / len(scores) if scores else 0.0
+
+        top = sorted_pages[0]["url"] if sorted_pages else ""
+        bottom = sorted_pages[-1]["url"] if sorted_pages else ""
+
+        return CompetitorResult(
+            rankings=rankings,
+            avg_score=round(avg_score, 2),
+            top_performer=top,
+            bottom_performer=bottom,
+        )
+
+
+class KeywordGapAnalysis:
+    """Find keywords competitors rank for that you don't."""
+
+    def find_gaps(self, your_keywords: set[str], competitor_keywords: set[str]) -> GapResult:
+        """Find keyword gaps between your content and competitors.
+
+        Args:
+            your_keywords: Set of keywords from your content
+            competitor_keywords: Set of keywords from competitor content
+
+        Returns:
+            GapResult with missing, shared, and unique keywords
+        """
+        missing = sorted(competitor_keywords - your_keywords)
+        shared = sorted(your_keywords & competitor_keywords)
+        unique = sorted(your_keywords - competitor_keywords)
+
+        return GapResult(
+            missing_keywords=missing,
+            shared_keywords=shared,
+            unique_keywords=unique,
+            gap_count=len(missing),
+        )
+
+
+class BacklinkEstimator:
+    """Estimate link quality from scraped page structure."""
+
+    def estimate(self, html: str) -> BacklinkResult:
+        """Estimate backlink quality from HTML content.
+
+        Args:
+            html: Raw HTML content
+
+        Returns:
+            BacklinkResult with link counts and quality score
+        """
+        # Find all links
+        link_pattern = re.compile(r'<a\s+[^>]*href=["\']([^"\']+)["\']', re.IGNORECASE)
+        links = link_pattern.findall(html)
+
+        internal_count = 0
+        external_count = 0
+        external_domains: set[str] = set()
+
+        for link in links:
+            # Internal links: relative paths or anchors
+            if link.startswith(("/", "#", "?")):
+                internal_count += 1
+            # External links: absolute URLs
+            elif link.startswith(("http://", "https://")):
+                external_count += 1
+                try:
+                    parsed = urlparse(link)
+                    if parsed.netloc:
+                        external_domains.add(parsed.netloc)
+                except Exception:
+                    pass
+
+        # Quality score based on link diversity and balance
+        total_links = internal_count + external_count
+        quality_score = 0.0
+
+        if total_links > 0:
+            # Reward for having both internal and external links
+            has_both = internal_count > 0 and external_count > 0
+            quality_score += 30 if has_both else 10
+
+            # Reward for good internal/external ratio (2:1 to 5:1 is ideal)
+            if external_count > 0:
+                ratio = internal_count / external_count
+                if 2 <= ratio <= 5:
+                    quality_score += 30
+                elif 1 <= ratio <= 10:
+                    quality_score += 15
+
+            # Reward for domain diversity
+            if len(external_domains) >= 5:
+                quality_score += 30
+            elif len(external_domains) >= 3:
+                quality_score += 20
+            elif len(external_domains) >= 1:
+                quality_score += 10
+
+            # Reward for sufficient total links
+            if total_links >= 20:
+                quality_score += 10
+            elif total_links >= 10:
+                quality_score += 5
+
+        quality_score = min(100.0, quality_score)
+
+        return BacklinkResult(
+            internal_count=internal_count,
+            external_count=external_count,
+            quality_score=round(quality_score, 1),
+            domains=sorted(external_domains),
+        )
+
+
+class TrendTracker:
+    """Track SEO score changes over time."""
+
+    def track(self, history: list[dict]) -> TrendResult:
+        """Track SEO trends from historical data.
+
+        Args:
+            history: List of dicts with 'timestamp' and 'score' keys, ordered chronologically
+
+        Returns:
+            TrendResult with trend direction, average change, and forecast
+        """
+        if len(history) < 2:
+            return TrendResult(
+                trend_direction="stable",
+                avg_change=0.0,
+                forecast=history[0].get("score", 0.0) if history else 0.0,
+                data_points=len(history),
+            )
+
+        scores = [h.get("score", 0.0) for h in history]
+        changes = [scores[i] - scores[i - 1] for i in range(1, len(scores))]
+        avg_change = sum(changes) / len(changes) if changes else 0.0
+
+        # Determine trend direction
+        if avg_change > 2.0:
+            direction = "improving"
+        elif avg_change < -2.0:
+            direction = "declining"
+        else:
+            direction = "stable"
+
+        # Simple linear forecast: last score + average change
+        forecast = scores[-1] + avg_change
+
+        return TrendResult(
+            trend_direction=direction,
+            avg_change=round(avg_change, 2),
+            forecast=round(forecast, 1),
+            data_points=len(history),
         )
