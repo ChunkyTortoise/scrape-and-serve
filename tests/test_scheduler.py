@@ -1,0 +1,139 @@
+"""Tests for the scheduler module."""
+
+import asyncio
+
+import pytest
+
+from scrape_and_serve.scheduler import ScheduleConfig, ScrapeScheduler
+
+
+async def mock_scrape(url: str) -> str:
+    """Test helper: simulate a successful scrape."""
+    return f"content from {url}"
+
+
+async def failing_scrape(url: str) -> str:
+    """Test helper: simulate a failing scrape."""
+    raise RuntimeError("Network error")
+
+
+class TestJobManagement:
+    def test_add_job(self):
+        scheduler = ScrapeScheduler()
+        name = scheduler.add_job(ScheduleConfig(url="https://example.com", name="example"))
+        assert name == "example"
+        status = scheduler.get_all_status()
+        assert status.total_jobs == 1
+
+    def test_add_job_auto_name(self):
+        scheduler = ScrapeScheduler()
+        name = scheduler.add_job(ScheduleConfig(url="https://example.com"))
+        assert name == "https://example.com"
+
+    def test_remove_job(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="example"))
+        assert scheduler.remove_job("example") is True
+        assert scheduler.get_all_status().total_jobs == 0
+
+    def test_remove_nonexistent(self):
+        scheduler = ScrapeScheduler()
+        assert scheduler.remove_job("does_not_exist") is False
+
+
+class TestRunOnce:
+    @pytest.mark.asyncio
+    async def test_run_once_success(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="test"))
+        result = await scheduler.run_once("test", mock_scrape)
+        assert result == "content from https://example.com"
+        status = scheduler.get_status("test")
+        assert status is not None
+        assert status.run_count == 1
+        assert status.last_run is not None
+        assert status.is_running is False
+
+    @pytest.mark.asyncio
+    async def test_run_once_error(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="test"))
+        with pytest.raises(RuntimeError, match="Network error"):
+            await scheduler.run_once("test", failing_scrape)
+        status = scheduler.get_status("test")
+        assert status is not None
+        assert status.error_count == 1
+        assert status.last_error == "Network error"
+        assert status.is_running is False
+
+    @pytest.mark.asyncio
+    async def test_run_once_callback(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="test"))
+        results: list[tuple[str, str]] = []
+        scheduler.on_change(lambda name, result: results.append((name, result)))
+        await scheduler.run_once("test", mock_scrape)
+        assert len(results) == 1
+        assert results[0] == ("test", "content from https://example.com")
+
+    @pytest.mark.asyncio
+    async def test_run_once_nonexistent(self):
+        scheduler = ScrapeScheduler()
+        with pytest.raises(KeyError, match="Job not found"):
+            await scheduler.run_once("nonexistent", mock_scrape)
+
+
+class TestStatus:
+    def test_initial_status(self):
+        scheduler = ScrapeScheduler()
+        status = scheduler.get_all_status()
+        assert status.is_running is False
+        assert status.total_jobs == 0
+        assert status.active_jobs == 0
+        assert status.total_runs == 0
+        assert status.total_errors == 0
+        assert status.jobs == []
+
+    def test_status_after_add(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://a.com", name="a"))
+        scheduler.add_job(ScheduleConfig(url="https://b.com", name="b"))
+        status = scheduler.get_all_status()
+        assert status.total_jobs == 2
+        assert status.active_jobs == 2
+
+    def test_job_status(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="test"))
+        status = scheduler.get_status("test")
+        assert status is not None
+        assert status.name == "test"
+        assert status.url == "https://example.com"
+        assert status.run_count == 0
+        assert status.is_running is False
+
+
+class TestSchedulerControl:
+    def test_stop(self):
+        scheduler = ScrapeScheduler()
+        scheduler._running = True
+        scheduler.stop()
+        assert scheduler._running is False
+
+    @pytest.mark.asyncio
+    async def test_start_and_stop(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="test", interval_seconds=1))
+        await scheduler.start(mock_scrape)
+        assert scheduler._running is True
+        # Give the loop a moment to run at least once
+        await asyncio.sleep(0.05)
+        scheduler.stop()
+        assert scheduler._running is False
+
+    def test_disabled_job(self):
+        scheduler = ScrapeScheduler()
+        scheduler.add_job(ScheduleConfig(url="https://example.com", name="disabled", enabled=False))
+        status = scheduler.get_all_status()
+        assert status.total_jobs == 1
+        assert status.active_jobs == 0
