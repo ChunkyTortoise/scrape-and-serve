@@ -5,7 +5,7 @@
 [![Tests](https://img.shields.io/badge/tests-62_passing-brightgreen)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F1C40F.svg)](LICENSE)
 
-**Small businesses track competitor prices in spreadsheets, manage inventory in Excel, and create content without SEO guidance.** Each task requires a different tool, a different workflow, and manual effort that scales linearly with product count. Scrape-and-Serve unifies web scraping, price monitoring, data modernization, and content optimization into one Python toolkit with a Streamlit UI.
+**Small businesses spend 5+ hours per week manually checking competitor prices, emailing Excel files for inventory updates, and publishing content with zero SEO data.** Each task requires a different tool, a different workflow, and manual effort that scales linearly with product count. Scrape-and-Serve cuts that to minutes -- YAML-configured scrapers, automated price alerts, one-click Excel-to-web-app conversion, and SEO scoring from 0-100, all in one Python toolkit with a Streamlit UI.
 
 ## What This Solves
 
@@ -24,6 +24,37 @@
 └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘  └────────┬─────────┘
          └──────────────────────┴──────────────────────┴──────────────────────┘
                                     Streamlit UI
+```
+
+## Before / After
+
+| Task | Before | After |
+|------|--------|-------|
+| **Competitor monitoring** | Manually visiting 15+ competitor websites daily, copy-pasting prices into spreadsheets | One YAML config defines all targets -- automated scrapes with content hashing detect changes and fire alerts |
+| **Price tracking** | Stale spreadsheet logs, no historical trends, price drops discovered days late | Historical price charts (Plotly), configurable threshold alerts (e.g., >5% change), CSV export for reporting |
+| **Inventory management** | Emailing .xlsx files between team members, no web access, version conflicts | Upload any .xlsx -- auto-detect schema, generate a live Streamlit CRUD app backed by SQLite in seconds |
+| **Content optimization** | Publishing blog posts with zero keyword data, guessing at readability | SEO engine scores content 0-100 on keyword density, Flesch-Kincaid readability, heading structure, and meta tags |
+
+## Typical Workflow
+
+```
+1. Define scrape targets         Write a YAML config with URLs, CSS selectors, and request intervals
+                                 (see demo_data/scrape_config.yaml for a working example)
+
+2. Run the scraper               $ python -m scrape_and_serve.scraper --config scrape_config.yaml
+                                 Content hashing detects page changes automatically between runs
+
+3. Set up price monitoring       Configure products + alert thresholds (e.g., notify on >5% price swing)
+                                 Historical data accumulates across runs for trend analysis
+
+4. Modernize an Excel file       Upload any .xlsx via the Streamlit UI -- columns auto-detected,
+                                 SQLite database created, full CRUD app generated with zero code
+
+5. Score your content            Paste or upload content into the SEO module -- get a 0-100 score
+                                 with specific fixes for keyword density, readability, and structure
+
+6. Review in Streamlit           All modules feed into one dashboard: scrape results, price charts,
+                                 inventory CRUD, and SEO reports in a single browser tab
 ```
 
 ## Quick Start
