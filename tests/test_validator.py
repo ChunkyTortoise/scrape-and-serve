@@ -1,6 +1,12 @@
 """Tests for the validator module."""
 
-from scrape_and_serve.validator import DataValidator
+from scrape_and_serve.validator import (
+    ConfigValidator,
+    DataValidator,
+    ScrapedDataValidator,
+    SelectorValidator,
+    URLValidator,
+)
 
 
 class TestRequired:
@@ -137,3 +143,140 @@ class TestFromConfig:
         result = v.validate({"score": 150})
         assert not result.is_valid
         assert result.errors[0].rule_type == "range"
+
+
+class TestURLValidator:
+    def test_valid_https_url(self):
+        validator = URLValidator()
+        result = validator.validate("https://example.com")
+        assert result.is_valid
+        assert result.errors == []
+
+    def test_valid_http_url(self):
+        validator = URLValidator()
+        result = validator.validate("http://example.com/path")
+        assert result.is_valid
+
+    def test_invalid_empty_url(self):
+        validator = URLValidator()
+        result = validator.validate("")
+        assert not result.is_valid
+        assert any("required" in e.rule_type for e in result.errors)
+
+    def test_invalid_url_with_spaces(self):
+        validator = URLValidator()
+        result = validator.validate("https://example .com")
+        assert not result.is_valid
+
+    def test_invalid_scheme(self):
+        validator = URLValidator()
+        result = validator.validate("ftp://example.com")
+        assert not result.is_valid
+        assert any("scheme" in e.rule_type for e in result.errors)
+
+    def test_missing_domain(self):
+        validator = URLValidator()
+        result = validator.validate("https://")
+        assert not result.is_valid
+
+
+class TestSelectorValidator:
+    def test_valid_selector(self):
+        validator = SelectorValidator()
+        result = validator.validate("div.class-name")
+        assert result.is_valid
+        assert result.errors == []
+
+    def test_valid_complex_selector(self):
+        validator = SelectorValidator()
+        result = validator.validate("div > p.content[data-id='123']")
+        assert result.is_valid
+
+    def test_invalid_empty_selector(self):
+        validator = SelectorValidator()
+        result = validator.validate("")
+        assert not result.is_valid
+
+    def test_invalid_starts_with_combinator(self):
+        validator = SelectorValidator()
+        result = validator.validate("> div")
+        assert not result.is_valid
+        assert any("combinator" in e.message.lower() for e in result.errors)
+
+    def test_invalid_unbalanced_brackets(self):
+        validator = SelectorValidator()
+        result = validator.validate("div[class='test'")
+        assert not result.is_valid
+
+    def test_invalid_unbalanced_parens(self):
+        validator = SelectorValidator()
+        result = validator.validate("div:nth-child(2")
+        assert not result.is_valid
+
+
+class TestConfigValidator:
+    def test_valid_config(self):
+        validator = ConfigValidator()
+        config = {"url": "https://example.com", "selector": "div.content"}
+        result = validator.validate(config)
+        assert result.is_valid
+        assert result.errors == []
+
+    def test_missing_url(self):
+        validator = ConfigValidator()
+        config = {"selector": "div"}
+        result = validator.validate(config)
+        assert not result.is_valid
+        assert any("url" in e.field for e in result.errors)
+
+    def test_missing_selector(self):
+        validator = ConfigValidator()
+        config = {"url": "https://example.com"}
+        result = validator.validate(config)
+        assert not result.is_valid
+        assert any("selector" in e.field for e in result.errors)
+
+    def test_invalid_interval(self):
+        validator = ConfigValidator()
+        config = {"url": "https://example.com", "selector": "div", "interval_seconds": -10}
+        result = validator.validate(config)
+        assert not result.is_valid
+
+    def test_low_interval_warning(self):
+        validator = ConfigValidator()
+        config = {"url": "https://example.com", "selector": "div", "interval_seconds": 30}
+        result = validator.validate(config)
+        assert result.is_valid
+        assert len(result.warnings) > 0
+
+
+class TestScrapedDataValidator:
+    def test_valid_data(self):
+        validator = ScrapedDataValidator()
+        data = [{"title": "Item 1", "price": "$10"}, {"title": "Item 2", "price": "$20"}]
+        schema = {"required_fields": ["title", "price"], "min_items": 1}
+        result = validator.validate(data, schema)
+        assert result.is_valid
+        assert result.__dict__["completeness_score"] == 100.0
+
+    def test_missing_fields(self):
+        validator = ScrapedDataValidator()
+        data = [{"title": "Item 1"}, {"price": "$20"}]
+        schema = {"required_fields": ["title", "price"]}
+        result = validator.validate(data, schema)
+        assert result.is_valid  # Still valid, but with warnings
+        assert len(result.warnings) > 0
+        assert result.__dict__["completeness_score"] == 50.0
+
+    def test_insufficient_items(self):
+        validator = ScrapedDataValidator()
+        data = [{"title": "Item 1"}]
+        schema = {"required_fields": ["title"], "min_items": 5}
+        result = validator.validate(data, schema)
+        assert result.is_valid
+        assert len(result.warnings) > 0
+
+    def test_invalid_data_type(self):
+        validator = ScrapedDataValidator()
+        result = validator.validate("not a list", {"required_fields": []})
+        assert not result.is_valid
