@@ -6,11 +6,15 @@
 
 ![CI](https://github.com/ChunkyTortoise/scrape-and-serve/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
-![Tests](https://img.shields.io/badge/tests-136%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-302%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Streamlit_Cloud-FF4B4B.svg?logo=streamlit&logoColor=white)](https://ct-scrape-and-serve.streamlit.app)
 
 **[Live Demo](https://ct-scrape-and-serve.streamlit.app)** -- try it without installing anything.
+
+## Demo Snapshot
+
+![Demo Snapshot](assets/demo.png)
 
 ## What This Solves
 
@@ -19,24 +23,54 @@
 - **Content ships without SEO basics** -- SEO scoring engine grades content 0-100 across five dimensions with actionable fixes
 - **No scheduled monitoring** -- Asyncio-based job scheduler with status tracking and callbacks
 
+## Service Mapping
+
+- **Service 9:** Automated Reporting Pipelines
+- **Service 12:** Programmatic SEO Content Engine
+- **Service 19:** Excel to Web App Modernization
+- **Service 20:** Competitor Intelligence Web Scraping
+
+## Certification Mapping
+
+- Google Digital Marketing & E-commerce Certificate
+- Meta Social Media Marketing Professional Certificate
+- Google Data Analytics Certificate
+- Microsoft AI-Enhanced Data Analysis
+
+## Key Metrics
+
+| Metric | Value |
+|--------|-------|
+| **Tests** | 302+ passing |
+| **Scraping** | Async (httpx + asyncio) |
+| **Content Intelligence** | Sentiment, entity extraction, classification |
+| **Data Quality** | Multi-dimensional profiling and outlier detection |
+| **SEO Analysis** | 5-dimension scoring with keyword density |
+| **Data Pipeline** | Composable DataFrame transformations |
+| **CI** | GitHub Actions (Python 3.11, 3.12) |
+
 ## Architecture
 
-```
-+------------------+  +------------------+  +------------------+  +------------------+
-|   Web Scraper    |  |  Price Monitor   |  | Excel Converter  |  |   SEO Content    |
-| YAML-configured  |  | Historical track |  | .xlsx -> CRUD app|  | Outlines + Score |
-| CSS selectors    |  | Alert thresholds |  | SQLite backend   |  | Keyword analysis |
-| Change detection |  | CSV export       |  | Code generation  |  | Readability      |
-+--------+---------+  +--------+---------+  +--------+---------+  +--------+---------+
-         |                      |                     |                     |
-+--------v---------+  +--------v---------+  +--------v---------+  +--------v---------+
-| Diff Visualizer  |  |    Scheduler     |  |    Validator     |  |   SEO Analyzer   |
-| Snapshot tracking|  | Async job runner |  | Type/range/regex |  | Keyword suggest  |
-| Unified diffs    |  | Status callbacks |  | Custom rules     |  | Content compare  |
-+--------+---------+  +--------+---------+  +--------+---------+  +--------+---------+
-         +---------------------+---------------------+---------------------+
-                                        |
-                                  Streamlit UI
+```mermaid
+graph TB
+    URL["URL Input"] --> Scraper["httpx Async Scraper"]
+    Scraper --> Parser["HTML Parser<br/>(BeautifulSoup)"]
+    Parser --> CI["Content Intelligence<br/>Sentiment &bull; Entities &bull; Classification"]
+    CI --> DQ["Data Quality Scorer<br/>Completeness &bull; Freshness &bull; Outliers"]
+    DQ --> SEO["SEO Analyzer<br/>Keyword Density &bull; Readability &bull; Technical"]
+    SEO --> Pipeline["Data Pipeline<br/>Composable Transforms"]
+    Pipeline --> Output["Output<br/>JSON &bull; CSV &bull; API"]
+    Output --> Dashboard["Streamlit Dashboard"]
+
+    style URL fill:#4A90D9,color:#fff
+    style Scraper fill:#50C878,color:#fff
+    style Parser fill:#50C878,color:#fff
+    style CI fill:#F5A623,color:#fff
+    style DQ fill:#F5A623,color:#fff
+    style SEO fill:#F5A623,color:#fff
+    style Pipeline fill:#9B59B6,color:#fff
+    style Output fill:#E74C3C,color:#fff
+    style Dashboard fill:#E74C3C,color:#fff
 ```
 
 ## Modules
@@ -78,7 +112,7 @@ make demo
 | Data | Pandas, SQLite |
 | UI | Streamlit, Plotly |
 | Config | PyYAML |
-| Testing | pytest (136 tests) |
+| Testing | pytest (302 tests) |
 | CI | GitHub Actions (Python 3.11, 3.12) |
 | Linting | Ruff |
 

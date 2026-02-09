@@ -1,0 +1,12 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./demo_data:/app/demo_data
+    environment:
+      - STREAMLIT_SERVER_HEADLESS=true
+    restart: unless-stopped
