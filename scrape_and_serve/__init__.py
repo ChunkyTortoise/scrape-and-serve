@@ -2,6 +2,19 @@
 
 __version__ = "0.1.0"
 
+from scrape_and_serve.content_intelligence import ContentAnalysis, ContentAnalyzer
+from scrape_and_serve.data_pipeline import DataPipeline, PipelineResult, PipelineStage
+from scrape_and_serve.data_quality import (
+    ColumnProfile,
+    DataProfile,
+    DataProfiler,
+    OutlierDetector,
+    OutlierReport,
+    QualityEngine,
+    QualityReport,
+    SchemaRule,
+    SchemaValidator,
+)
 from scrape_and_serve.diff_visualizer import DiffResult, DiffVisualizer, PageSnapshot
 from scrape_and_serve.scheduler import (
     JobHistoryEntry,
@@ -72,4 +85,18 @@ __all__ = [
     "validate_config",
     "validate_scrape_result",
     "validate_url",
+    "ContentAnalysis",
+    "ContentAnalyzer",
+    "DataPipeline",
+    "PipelineResult",
+    "PipelineStage",
+    "ColumnProfile",
+    "DataProfile",
+    "DataProfiler",
+    "OutlierDetector",
+    "OutlierReport",
+    "QualityEngine",
+    "QualityReport",
+    "SchemaRule",
+    "SchemaValidator",
 ]
