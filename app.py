@@ -90,7 +90,16 @@ def render_price_monitor_tab() -> None:
         if selected:
             points = history.get_product_history(selected)
             chart_df = pd.DataFrame([{"date": p.observed_at, "price": p.price} for p in points])
-            st.line_chart(chart_df.set_index("date"))
+
+            # Validate data to prevent infinite extent warnings
+            chart_df["price"] = pd.to_numeric(chart_df["price"], errors="coerce")
+            chart_df = chart_df.dropna(subset=["price"])
+            chart_df = chart_df[chart_df["price"].between(-1e10, 1e10)]  # Remove infinite values
+
+            if not chart_df.empty:
+                st.line_chart(chart_df.set_index("date"))
+            else:
+                st.warning("No valid price data to display.")
 
         if st.button("Export CSV"):
             csv_data = export_history_csv(history)
