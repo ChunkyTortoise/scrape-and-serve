@@ -6,7 +6,7 @@
 
 ![CI](https://github.com/ChunkyTortoise/scrape-and-serve/actions/workflows/ci.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
-![Tests](https://img.shields.io/badge/tests-302%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-300%2B%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Streamlit_Cloud-FF4B4B.svg?logo=streamlit&logoColor=white)](https://ct-scrape-and-serve.streamlit.app)
 
@@ -41,7 +41,7 @@
 
 | Metric | Value |
 |--------|-------|
-| **Tests** | 302+ passing |
+| **Tests** | 300+ passing |
 | **Scraping** | Async (httpx + asyncio) |
 | **Content Intelligence** | Sentiment, entity extraction, classification |
 | **Data Quality** | Multi-dimensional profiling and outlier detection |
@@ -112,7 +112,7 @@ make demo
 | Data | Pandas, SQLite |
 | UI | Streamlit, Plotly |
 | Config | PyYAML |
-| Testing | pytest (302 tests) |
+| Testing | pytest (300+ tests) |
 | CI | GitHub Actions (Python 3.11, 3.12) |
 | Linting | Ruff |
 
@@ -148,7 +148,7 @@ scrape-and-serve/
 ## Testing
 
 ```bash
-make test                                   # Full suite (136 tests)
+make test                                   # Full suite (300+ tests)
 python -m pytest tests/ -v                  # Verbose output
 python -m pytest tests/test_scraper.py      # Single module
 ```
