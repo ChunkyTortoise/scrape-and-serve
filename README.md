@@ -1,3 +1,5 @@
+[![Sponsor](https://img.shields.io/badge/Sponsor-💖-pink.svg)](https://github.com/sponsors/ChunkyTortoise)
+
 # Scrape-and-Serve
 
 **Teams spend 5+ hours/week manually checking competitor prices, reformatting spreadsheets, and optimizing content for SEO.** Scrape-and-Serve consolidates all four into one Python toolkit.
